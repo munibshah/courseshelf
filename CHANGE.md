@@ -114,3 +114,16 @@
 - **Next.js build compiles successfully** (21 routes: 9 static, 12 dynamic)
 - All TypeScript types pass strict checking
 - All API routes have admin auth guards
+
+## 2026-03-24 — Bug Fix: Stripe Checkout Session Creation
+
+### Problem
+- Clicking "Enroll Now" returned "Failed to create checkout session" (HTTP 500)
+
+### Root Cause
+- `product_data.description` was passed as an empty string `""` when a course had no description — Stripe rejects empty strings for this field
+- `unit_amount` could be `0` if the course price was never set — Stripe requires at least 1 cent for payment-mode checkout
+
+### Fix (`src/app/api/checkout/route.ts`)
+- Only include `description` in `product_data` when `course.description` is non-empty
+- Added early validation returning HTTP 400 if `course.price < 1`

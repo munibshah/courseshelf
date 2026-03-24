@@ -37,16 +37,27 @@ export async function GET(req: NextRequest) {
     const stripe = getStripeClient();
     const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
 
+    const productData: { name: string; description?: string } = {
+      name: course.title,
+    };
+    if (course.description) {
+      productData.description = course.description;
+    }
+
+    if (course.price < 1) {
+      return NextResponse.json(
+        { error: "Course price must be at least $0.01" },
+        { status: 400 }
+      );
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [
         {
           price_data: {
             currency: "usd",
-            product_data: {
-              name: course.title,
-              description: course.description,
-            },
+            product_data: productData,
             unit_amount: course.price,
           },
           quantity: 1,
