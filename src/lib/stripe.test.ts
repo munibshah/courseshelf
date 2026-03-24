@@ -46,6 +46,18 @@ describe("Stripe Client", () => {
     });
   });
 
+  it("should strip non-printable characters from the secret key", async () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_abc123\u200B\u00A0\r\n");
+    const Stripe = (await import("stripe")).default;
+    const { getStripeClient } = await import("@/lib/stripe");
+
+    getStripeClient();
+
+    expect(Stripe).toHaveBeenCalledWith("sk_test_abc123", {
+      apiVersion: "2026-02-25.clover",
+    });
+  });
+
   it("should throw if STRIPE_SECRET_KEY is missing", async () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "");
     const { getStripeClient } = await import("@/lib/stripe");

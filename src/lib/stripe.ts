@@ -1,7 +1,16 @@
 import Stripe from "stripe";
 
+/**
+ * Strip all non-printable ASCII characters from a string.
+ * Keeps only chars in the range 0x20 (space) – 0x7E (~).
+ */
+function sanitizeKey(raw: string): string {
+  return raw.replace(/[^\x20-\x7E]/g, "");
+}
+
 export function getStripeClient(): Stripe {
-  const key = process.env.STRIPE_SECRET_KEY?.trim();
+  const raw = process.env.STRIPE_SECRET_KEY ?? "";
+  const key = sanitizeKey(raw);
   if (!key) {
     throw new Error("Missing STRIPE_SECRET_KEY environment variable");
   }
