@@ -3,14 +3,18 @@ import { auth } from "@clerk/nextjs/server";
 import { getStripeClient } from "@/lib/stripe";
 import { getCourseById, getUserPurchaseForCourse } from "@/lib/queries";
 
-export async function GET(req: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.redirect(new URL("/sign-in", req.url));
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    const courseId = req.nextUrl.searchParams.get("courseId");
+    const body = await req.json();
+    const courseId = body.courseId;
     if (!courseId) {
       return NextResponse.json(
         { error: "Missing courseId parameter" },
@@ -29,8 +33,13 @@ export async function GET(req: NextRequest) {
     // Check if already purchased
     const existing = await getUserPurchaseForCourse(userId, courseId);
     if (existing) {
-      return NextResponse.redirect(
-        new URL(`/courses/${courseId}/learn`, req.url)
+      return NextResponse.json({ alreadyPurchased: true, redirectUrl: `/courses/${courseId}/learn` });
+    }
+
+    if (course.price < 1) {
+      return NextResponse.json(
+        { error: "Course price must be at least $0.01" },
+        { status: 400 }
       );
     }
 
@@ -42,13 +51,6 @@ export async function GET(req: NextRequest) {
     };
     if (course.description) {
       productData.description = course.description;
-    }
-
-    if (course.price < 1) {
-      return NextResponse.json(
-        { error: "Course price must be at least $0.01" },
-        { status: 400 }
-      );
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -71,11 +73,20 @@ export async function GET(req: NextRequest) {
       cancel_url: `${appUrl}/courses/${courseId}`,
     });
 
-    return NextResponse.redirect(session.url!);
+    if (!session.url) {
+      return NextResponse.json(
+        { error: "Stripe did not return a checkout URL" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ url: session.url });
   } catch (error) {
-    console.error("Checkout error:", error);
+    const message =
+      error instanceof Error ? error.message : "Unknown error";
+    console.error("Checkout error:", message, error);
     return NextResponse.json(
-      { error: "Failed to create checkout session" },
+      { error: "Failed to create checkout session", detail: message },
       { status: 500 }
     );
   }

@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -12,7 +14,7 @@ import {
   AccordionContent,
 } from "@/components/ui/accordion";
 import { cn, formatPrice } from "@/lib/utils";
-import { PlayCircle, Lock, Eye, CheckCircle } from "lucide-react";
+import { PlayCircle, Lock, Eye, CheckCircle, Loader2 } from "lucide-react";
 import type { Course, Lesson } from "@/types/models";
 
 interface CourseDetailClientProps {
@@ -28,8 +30,37 @@ export function CourseDetailClient({
   hasPurchased,
   isSignedIn,
 }: CourseDetailClientProps) {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
   const previewLessons = lessons.filter((l) => l.is_preview);
   const lockedLessons = lessons.filter((l) => !l.is_preview);
+
+  async function handleCheckout() {
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ courseId: course.id }),
+      });
+      const data = await res.json();
+
+      if (data.alreadyPurchased) {
+        router.push(data.redirectUrl);
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create checkout session");
+      }
+
+      window.location.href = data.url;
+    } catch (err) {
+      console.error("Checkout error:", err);
+      alert("Something went wrong. Please try again.");
+      setIsLoading(false);
+    }
+  }
 
   return (
     <main className="min-h-screen">
@@ -91,15 +122,17 @@ export function CourseDetailClient({
                 Continue Learning
               </Link>
             ) : isSignedIn ? (
-              <Link
-                href={`/api/checkout?courseId=${course.id}`}
-                className={cn(
-                  buttonVariants({ size: "lg" }),
-                  "w-full text-base"
-                )}
+              <Button
+                size="lg"
+                className="w-full text-base"
+                onClick={handleCheckout}
+                disabled={isLoading}
               >
+                {isLoading ? (
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ) : null}
                 Enroll Now — {formatPrice(course.price)}
-              </Link>
+              </Button>
             ) : (
               <Link
                 href="/sign-up"
