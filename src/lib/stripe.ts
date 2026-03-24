@@ -1,7 +1,11 @@
 import Stripe from "stripe";
 
 export function getStripeClient(): Stripe {
-  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  const key = process.env.STRIPE_SECRET_KEY?.trim();
+  if (!key) {
+    throw new Error("Missing STRIPE_SECRET_KEY environment variable");
+  }
+  return new Stripe(key, {
     apiVersion: "2026-02-25.clover",
   });
 }

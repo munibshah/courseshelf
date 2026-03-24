@@ -34,6 +34,24 @@ describe("Stripe Client", () => {
     });
   });
 
+  it("should trim whitespace from the secret key", async () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "  sk_test_abc123\n");
+    const Stripe = (await import("stripe")).default;
+    const { getStripeClient } = await import("@/lib/stripe");
+
+    getStripeClient();
+
+    expect(Stripe).toHaveBeenCalledWith("sk_test_abc123", {
+      apiVersion: "2026-02-25.clover",
+    });
+  });
+
+  it("should throw if STRIPE_SECRET_KEY is missing", async () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "");
+    const { getStripeClient } = await import("@/lib/stripe");
+    expect(() => getStripeClient()).toThrow("Missing STRIPE_SECRET_KEY");
+  });
+
   it("should export formatAmountForStripe to convert cents", async () => {
     const { formatAmountForStripe } = await import("@/lib/stripe");
     expect(formatAmountForStripe(4999)).toBe(4999);
