@@ -12,21 +12,12 @@ export function getStripeClient(): Stripe {
   const raw = process.env.STRIPE_SECRET_KEY ?? "";
   const key = sanitizeKey(raw);
 
-  // Diagnostic logging — remove after debugging
-  console.log("[Stripe Debug] raw length:", raw.length);
-  console.log("[Stripe Debug] sanitized length:", key.length);
-  console.log("[Stripe Debug] starts with sk_test_:", key.startsWith("sk_test_"));
-  console.log("[Stripe Debug] first 15 chars:", key.slice(0, 15));
-  console.log(
-    "[Stripe Debug] raw char codes (last 10):",
-    [...raw.slice(-10)].map((c) => c.charCodeAt(0))
-  );
-
   if (!key) {
     throw new Error("Missing STRIPE_SECRET_KEY environment variable");
   }
   return new Stripe(key, {
     apiVersion: "2026-02-25.clover",
+    httpClient: Stripe.createFetchHttpClient(),
   });
 }
 

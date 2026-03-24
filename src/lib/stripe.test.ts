@@ -1,13 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("stripe", () => ({
-  default: vi.fn().mockImplementation((key, options) => ({
-    _key: key,
-    _options: options,
-    checkout: { sessions: { create: vi.fn() } },
-    webhooks: { constructEvent: vi.fn() },
-  })),
-}));
+vi.mock("stripe", () => {
+  const mockCreateFetchHttpClient = vi.fn().mockReturnValue("fetch-client");
+  const MockStripe = Object.assign(
+    vi.fn().mockImplementation((key: string, options: Record<string, unknown>) => ({
+      _key: key,
+      _options: options,
+      checkout: { sessions: { create: vi.fn() } },
+      webhooks: { constructEvent: vi.fn() },
+    })),
+    { createFetchHttpClient: mockCreateFetchHttpClient }
+  );
+  return { default: MockStripe };
+});
 
 describe("Stripe Client", () => {
   beforeEach(() => {
@@ -23,14 +28,16 @@ describe("Stripe Client", () => {
     expect(client.checkout).toBeDefined();
   });
 
-  it("should initialize Stripe with the secret key", async () => {
+  it("should initialize Stripe with the secret key and fetch client", async () => {
     const Stripe = (await import("stripe")).default;
     const { getStripeClient } = await import("@/lib/stripe");
 
     getStripeClient();
 
+    expect(Stripe.createFetchHttpClient).toHaveBeenCalled();
     expect(Stripe).toHaveBeenCalledWith("sk_test_abc123", {
       apiVersion: "2026-02-25.clover",
+      httpClient: "fetch-client",
     });
   });
 
@@ -41,9 +48,9 @@ describe("Stripe Client", () => {
 
     getStripeClient();
 
-    expect(Stripe).toHaveBeenCalledWith("sk_test_abc123", {
+    expect(Stripe).toHaveBeenCalledWith("sk_test_abc123", expect.objectContaining({
       apiVersion: "2026-02-25.clover",
-    });
+    }));
   });
 
   it("should strip non-printable characters from the secret key", async () => {
@@ -53,9 +60,9 @@ describe("Stripe Client", () => {
 
     getStripeClient();
 
-    expect(Stripe).toHaveBeenCalledWith("sk_test_abc123", {
+    expect(Stripe).toHaveBeenCalledWith("sk_test_abc123", expect.objectContaining({
       apiVersion: "2026-02-25.clover",
-    });
+    }));
   });
 
   it("should throw if STRIPE_SECRET_KEY is missing", async () => {
